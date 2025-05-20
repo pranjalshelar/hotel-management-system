@@ -4,9 +4,10 @@ from tkinter import ttk
 import random
 from time import strftime
 from datetime import datetime
-import mysql.connector
 from tkinter import messagebox
 import os
+import mysql.connector
+from db_config import execute_query
 
 
 
@@ -93,15 +94,13 @@ class Roombooking:
         lblroom=Label(labelframeleft,text="Available Room: ",font=("Sitka Heading",13,"bold"),padx=2,pady=5,bg="silver")
         lblroom.grid(row=4,column=0,sticky=W)
 
-        conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-        my_cursor=conn.cursor()
-        my_cursor.execute("select RoomNo from details")
-        rows=my_cursor.fetchall()
-
-        combo_RoomNo = ttk.Combobox(labelframeleft,textvariable=self.var_room,font=("Bookman Old Style",11),width=26, justify='center')
-        combo_RoomNo['values']=rows
-        combo_RoomNo.grid(row=4,column=1,sticky=W)
-        combo_RoomNo.current(0)
+        query = "SELECT roomno FROM details"
+        rows = execute_query(query, fetch=True)
+        if rows:
+            combo_RoomNo = ttk.Combobox(labelframeleft,textvariable=self.var_room,font=("Bookman Old Style",11),width=26, justify='center')
+            combo_RoomNo['values']=[row[0] for row in rows]
+            combo_RoomNo.grid(row=4,column=1,sticky=W)
+            combo_RoomNo.current(0)
 
         # Meal
         lbl_Meal=Label(labelframeleft,text="Meal: ",font=("Sitka Heading",13,"bold"),padx=2,pady=5,bg="silver")
@@ -136,8 +135,8 @@ class Roombooking:
         # Total Cost
         lblTotalCost=Label(labelframeleft,text="Total Cost: ",font=("Sitka Heading",13,"bold"),padx=2,pady=5,bg="silver")
         lblTotalCost.grid(row=10,column=0,sticky=W)
-        txtTotalCostlblTotalCost=ttk.Entry(labelframeleft,textvariable=self.var_totalbill,width=28,font=("Bookman Old Style",11))
-        txtTotalCostlblTotalCost.grid(row=10,column=1)
+        txtTotalCost=ttk.Entry(labelframeleft,textvariable=self.var_totalbill,width=28,font=("Bookman Old Style",11))
+        txtTotalCost.grid(row=10,column=1)
 
     # ************************Bill Button************************
         btnBill=Button(labelframeleft,text='Bill',command=self.total,font=("Bookman Old Style",11,"bold"),width=10,bg='dark blue',fg='white',relief=RAISED)
@@ -244,98 +243,97 @@ class Roombooking:
     #******************  add data
     def add_data(self):
         if self.var_contact.get()=="" or self.var_checkin.get()=="":
-            messagebox.showerror("Error","All fields are requaired",parent=self.root)
+            messagebox.showerror("Error","All fields are required",parent=self.root)
         else:
             try:
-                conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-                my_cursor=conn.cursor()
-                my_cursor.execute("insert into room values(%s,%s,%s,%s,%s,%s,%s,%s,%s)",(
-                                        self.var_contact.get(),
-                                        self.var_checkin.get(),
-                                        self.var_checkout.get(),
-                                        self.var_roomtype.get(),
-                                        self.var_room.get(),
-                                        self.var_meal.get(),
-                                        self.var_noofdays.get(),
-                                        self.var_mealcost.get(),
-                                        self.var_totalbill.get()
-                                    ))
-                conn.commit()
-                self.fetch_data()
-                conn.close()
-                messagebox.showinfo("Success","Room Booked",parent=self.root)
-            except Exception as es:
-                messagebox.showwarning("Warning",f"Some thing went wrong:{str(es)}",parent=self.root)
+                query = """
+                    INSERT INTO room (Contact, Check_in, Check_out, Roomtype, Room, Meal, NoOfDays, Meal_Cost, Total_Bill, Payment_Mode)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                params = (
+                    self.var_contact.get(),
+                    self.var_checkin.get(),
+                    self.var_checkout.get(),
+                    self.var_roomtype.get(),
+                    self.var_room.get(),
+                    self.var_meal.get(),
+                    self.var_noofdays.get(),
+                    self.var_mealcost.get(),
+                    self.var_totalbill.get(),
+                    "Cash"  # Default payment mode, update as needed
+                )
+                if execute_query(query, params):
+                    self.fetch_data()
+                    messagebox.showinfo("Success","Room Booked Successfully",parent=self.root)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to book room: {str(e)}", parent=self.root)
 
     # fetch data
     def fetch_data(self):
-        conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-        my_cursor=conn.cursor()
-        my_cursor.execute("select * from room")
-        rows=my_cursor.fetchall()
-        if len(rows)!=0:
-            self.room_table.delete(*self.room_table.get_children())
-            for i in rows:
-                self.room_table.insert("",END,values=i)
-            conn.commit()
-        conn.close()
+        try:
+            query = "SELECT * FROM room"
+            rows = execute_query(query, fetch=True)
+            if rows:
+                self.room_table.delete(*self.room_table.get_children())
+                for i in rows:
+                    self.room_table.insert("",END,values=i)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to fetch data: {str(e)}", parent=self.root)
 
     def get_currsor(self,event=""):
-        currsor_row=self.room_table.focus()
-        content=self.room_table.item(currsor_row)
+        cursor_row=self.room_table.focus()
+        content=self.room_table.item(cursor_row)
         row=content["values"]
-
-        self.var_contact.set(row[0]),
-        self.var_checkin.set(row[1])
-        self.var_checkout.set(row[2]),
-        self.var_roomtype.set(row[3]),
-        self.var_room.set(row[4]),
-        self.var_meal.set(row[5]),
-        self.var_noofdays.set(row[6]),
-        self.var_mealcost.set(row[7]),
-        self.var_totalbill.set(row[8])
+        self.var_contact.set(row[2])
+        self.var_checkin.set(row[8])
+        self.var_checkout.set(row[9])
+        self.var_room.set(row[10])
+        self.var_roomtype.set(row[11])
+        self.var_meal.set(row[12])
+        self.var_noofdays.set(row[13])
+        self.var_totalbill.set(row[14])
 
 
 # ******update function
     def update(self):
         if self.var_contact.get()=="":
-            messagebox.showerror("Error","Please  enter mobile number",parent=self.root)
+            messagebox.showerror("Error","Please enter contact number",parent=self.root)
         else:
-            conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-            my_cursor=conn.cursor()
-            my_cursor.execute("update room set Contact=%s, Check_in=%s, Check_out=%s, Roomtype=%s, Meal=%s, NoOfDays=%s, Meal_Cost=%s, Total_Bill=%s where Room=%s",(  
-                            self.var_contact.get(),
-                            self.var_checkin.get(),
-                            self.var_checkout.get(),
-                            self.var_roomtype.get(),
-                            self.var_meal.get(),
-                            self.var_noofdays.get(),
-                            self.var_mealcost.get(),
-                            self.var_totalbill.get(),
-                            self.var_room.get()
-                            
-                           
-                        ))
-            conn.commit()
-            self.fetch_data()
-            conn.close()
-            messagebox.showinfo("Update","Room details has been updated successfully",parent=self.root)
+            try:
+                query = """
+                    UPDATE room SET 
+                    Check_in=%s, Check_out=%s, Roomtype=%s, Meal=%s, NoOfDays=%s, Meal_Cost=%s, Total_Bill=%s, Payment_Mode=%s
+                    WHERE Room=%s
+                """
+                params = (
+                    self.var_checkin.get(),
+                    self.var_checkout.get(),
+                    self.var_roomtype.get(),
+                    self.var_meal.get(),
+                    self.var_noofdays.get(),
+                    self.var_mealcost.get(),
+                    self.var_totalbill.get(),
+                    "Cash",  # Default payment mode, update as needed
+                    self.var_room.get()
+                )
+                if execute_query(query, params):
+                    self.fetch_data()
+                    messagebox.showinfo("Update","Room details has been updated successfully",parent=self.root)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to update room: {str(e)}", parent=self.root)
 
 # *******Delete
     def Delete(self):
-        Delete=messagebox.askyesno("Hotel Management System","Do you want to delete this customer",parent=self.root) 
+        Delete=messagebox.askyesno("Hotel Management System","Do you want to delete this Room",parent=self.root)
         if Delete>0:
-            conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-            my_cursor=conn.cursor()
-            query="Delete from room where Contact=%s"
-            value=(self.var_contact.get(),)
-            my_cursor.execute(query,value)
-        else:
-            if not Delete:
-                return
-        conn.commit()
-        self.fetch_data()
-        conn.close()
+            try:
+                query = "DELETE FROM room WHERE Room=%s"
+                params = (self.var_room.get(),)
+                if execute_query(query, params):
+                    self.fetch_data()
+                    messagebox.showinfo("Delete","Room has been deleted successfully",parent=self.root)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delete room: {str(e)}", parent=self.root)
 
 # *******Reset
     def Reset(self):
@@ -354,146 +352,95 @@ class Roombooking:
     # *******************************All data fetch***********************
     def fetch_contact(self):
         if self.var_contact.get()=="":
-            messagebox.showerror("Error","Please enter Contact Number",parent=self.root)
+            messagebox.showerror("Error","Please enter contact number",parent=self.root)
         else:
-            conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-            my_cursor=conn.cursor()
-            query=("select Name from customer where Mobile=%s")
-            value=(self.var_contact.get(),)
-            my_cursor.execute(query,value)
-            row=my_cursor.fetchone()
-
-            if row==None:
-                messagebox.showerror("Error","This message is Not Found",parent=self.root)
+            query = "SELECT * FROM customer WHERE mobile=%s"
+            params = (self.var_contact.get(),)
+            row = execute_query(query, params, fetch=True)
+            if row:
+                self.var_checkin.set(row[0][8])
+                self.var_checkout.set(row[0][9])
+                self.var_room.set(row[0][10])
+                self.var_roomtype.set(row[0][11])
+                self.var_meal.set(row[0][12])
+                self.var_noofdays.set(row[0][13])
+                self.var_totalbill.set(row[0][14])
             else:
-                conn.commit()
-                conn.close()
-
-                # frame************************************************
-                FetchDataframe=Frame(self.root,bd=2,relief=RIDGE)
-                FetchDataframe.place(x=435,y=50,width=305,height=210)
-
-                # ***********************Name***************************
-                lblName=Label(FetchDataframe,text="Name:",font=("Sitka Heading",13,"bold"))
-                lblName.place(x=5,y=8)
-                lbl=Label(FetchDataframe,text=row,font=("Sitka Heading",13,"bold"))
-                lbl.place(x=100,y=8)
-
-                # ***************************Gender***********************
-                conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-                my_cursor=conn.cursor()
-                query=("select Gender from customer where Mobile=%s")
-                value=(self.var_contact.get(),)
-                my_cursor.execute(query,value)
-                row=my_cursor.fetchone()
-
-                lblGender=Label(FetchDataframe,text="Gender:",font=("Sitka Heading",13,"bold"))
-                lblGender.place(x=5,y=40)
-                lbl2=Label(FetchDataframe,text=row,font=("Sitka Heading",13,"bold"))
-                lbl2.place(x=100,y=40)
-
-                # *************************Email*************************
-                conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-                my_cursor=conn.cursor()
-                query=("select Email from customer where Mobile=%s")
-                value=(self.var_contact.get(),)
-                my_cursor.execute(query,value)
-                row=my_cursor.fetchone()
-
-                lblEmail=Label(FetchDataframe,text="Email:",font=("Sitka Heading",13,"bold"))
-                lblEmail.place(x=5,y=72)
-                lbl3=Label(FetchDataframe,text=row,font=("Sitka Heading",13,"bold"))
-                lbl3.place(x=100,y=72)
-
-                # ****************************Nationality*****************
-                conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-                my_cursor=conn.cursor()
-                query=("select Nationality from customer where Mobile=%s")
-                value=(self.var_contact.get(),)
-                my_cursor.execute(query,value)
-                row=my_cursor.fetchone()
-
-                lblNationality=Label(FetchDataframe,text="Nationality:",font=("Sitka Heading",13,"bold"))
-                lblNationality.place(x=5,y=104)
-                lbl4=Label(FetchDataframe,text=row,font=("Sitka Heading",13,"bold"))
-                lbl4.place(x=100,y=104)
-
-                # ***************************Address**********************
-                conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-                my_cursor=conn.cursor()
-                query=("select Address from customer where Mobile=%s")
-                value=(self.var_contact.get(),)
-                my_cursor.execute(query,value)
-                row=my_cursor.fetchone()
-
-                lblAddress=Label(FetchDataframe,text="Address:",font=("Sitka Heading",13,"bold"))
-                lblAddress.place(x=5,y=136)
-                lbl5=Label(FetchDataframe,text=row,font=("Sitka Heading",13,"bold"))
-                lbl5.place(x=100,y=136)
+                messagebox.showerror("Error","No record found",parent=self.root)
 
     # ****search system
     def search(self):
-        conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-        my_cursor=conn.cursor()
-        my_cursor.execute("select * from room where "+str(self.search_var.get())+ " LIKE '%"+str(self.txt_search.get())+"%'")
-        rows=my_cursor.fetchall()
-        if len (rows)!=0:
-            self.room_table.delete(*self.room_table.get_children())
-            for i in rows:
-                self.room_table.insert("",END,values=i)
-            conn.commit()
-        conn.close()   
+        if self.txt_search.get()=="":
+            messagebox.showerror("Error","All fields are required",parent=self.root)
+        else:
+            try:
+                if self.search_var.get()=="Contact":
+                    query = "SELECT * FROM room WHERE Contact=%s"
+                else:
+                    query = "SELECT * FROM room WHERE Room=%s"
+                params = (self.txt_search.get(),)
+                rows = execute_query(query, params, fetch=True)
+                if rows:
+                    self.room_table.delete(*self.room_table.get_children())
+                    for i in rows:
+                        self.room_table.insert("",END,values=i)
+                else:
+                    messagebox.showerror("Error","No record found",parent=self.root)
+            except Exception as e:
+                messagebox.showerror("Error", f"Search failed: {str(e)}", parent=self.root)
 
     # **********Total
     def total(self):
-        inDate=self.var_checkin.get()
-        outDate=self.var_checkout.get()
-        inDate=datetime.strptime(inDate,"%y/%m/%d")
-        outDate=datetime.strptime(outDate,"%y/%m/%d")
-        self.var_noofdays.set(abs(outDate-inDate).days)
+        try:
+            inDate=self.var_checkin.get()
+            outDate=self.var_checkout.get()
+            inDate=datetime.strptime(inDate,"%y/%m/%d")
+            outDate=datetime.strptime(outDate,"%y/%m/%d")
+            self.var_noofdays.set(abs(outDate-inDate).days)
 
-    # Single room
-        if self.var_roomtype.get()=="Single":
-            q1=float(800)
-            q2=float(self.var_mealcost.get())
-            q3=float(self.var_noofdays.get())
-            q4=float(q1*q3)
-            q5=float(q4+q2)
-            Tax="Rs."+str("%.2f"%((q5)*0.1))
-            ST="Rs."+str("%.2f"%((q5)))
-            TT="Rs."+str("%.2f"%(q5+((q5)*0.1)))
-            self.var_paidtax.set(Tax)
-            self.var_actualtotal.set(ST)
-            self.var_totalbill.set(TT)
+            # Single room
+            if self.var_roomtype.get()=="Single":
+                q1=float(800)
+                q2=float(self.var_mealcost.get())
+                q3=float(self.var_noofdays.get())
+                q4=float(q1*q3)
+                q5=float(q4+q2)
+                Tax="Rs."+str("%.2f"%((q5)*0.1))
+                ST="Rs."+str("%.2f"%((q5)))
+                TT="Rs."+str("%.2f"%(q5+((q5)*0.1)))
+                self.var_paidtax.set(Tax)
+                self.var_actualtotal.set(ST)
+                self.var_totalbill.set(TT)
 
-    # Double room
-        elif (self.var_meal.get()=="Dinner" and self.var_roomtype.get()=="Double"):
-            q1=float(1200)
-            q2=float(self.var_mealcost.get())
-            q3=float(self.var_noofdays.get())
-            q4=float(q1*q3)
-            q5=float(q4+q2)
-            Tax="Rs."+str("%.2f"%((q5)*0.1))
-            ST="Rs."+str("%.2f"%((q5)))
-            TT="Rs."+str("%.2f"%(q5+((q5)*0.1)))
-            self.var_paidtax.set(Tax)
-            self.var_actualtotal.set(ST)
-            self.var_totalbill.set(TT)
+            # Double room
+            elif (self.var_meal.get()=="Dinner" and self.var_roomtype.get()=="Double"):
+                q1=float(1200)
+                q2=float(self.var_mealcost.get())
+                q3=float(self.var_noofdays.get())
+                q4=float(q1*q3)
+                q5=float(q4+q2)
+                Tax="Rs."+str("%.2f"%((q5)*0.1))
+                ST="Rs."+str("%.2f"%((q5)))
+                TT="Rs."+str("%.2f"%(q5+((q5)*0.1)))
+                self.var_paidtax.set(Tax)
+                self.var_actualtotal.set(ST)
+                self.var_totalbill.set(TT)
 
-
-    # Luxury room
-        elif self.var_roomtype.get()=="Luxury":
-            q1=float(2500)
-            q2=float(self.var_mealcost.get())
-            q3=float(self.var_noofdays.get())
-            q4=float(q1*q3)
-            q5=float(q4+q2)
-            Tax="Rs."+str("%.2f"%((q5)*0.1))
-            ST="Rs."+str("%.2f"%((q5)))
-            TT="Rs."+str("%.2f"%(q5+((q5)*0.1)))
-            self.var_paidtax.set(Tax)
-            self.var_actualtotal.set(ST)
-            self.var_totalbill.set(TT)
+            # Luxury room
+            elif self.var_roomtype.get()=="Luxury":
+                q1=float(2500)
+                q2=float(self.var_mealcost.get())
+                q3=float(self.var_noofdays.get())
+                q4=float(q1*q3)
+                q5=float(q4+q2)
+                Tax="Rs."+str("%.2f"%((q5)*0.1))
+                ST="Rs."+str("%.2f"%((q5)))
+                TT="Rs."+str("%.2f"%(q5+((q5)*0.1)))
+                self.var_paidtax.set(Tax)
+                self.var_actualtotal.set(ST)
+                self.var_totalbill.set(TT)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to calculate total: {str(e)}", parent=self.root)
 
 
 
