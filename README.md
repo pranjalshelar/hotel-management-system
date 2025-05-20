@@ -12,92 +12,39 @@ A comprehensive hotel management system built with Python and PostgreSQL, featur
 - Modern GUI Interface
 - PostgreSQL Database Integration
 
-## Prerequisites
+## System Requirements
+- Windows 10 or later
+- MySQL Server 8.0 or later
+- 4GB RAM minimum
+- 500MB free disk space
 
-- Python 3.8 or higher
-- PostgreSQL 12 or higher
-- pip (Python package manager)
+## Installation Instructions
 
-## Installation
+### Automatic Installation
+1. Run `install.bat` as administrator
+2. Follow the on-screen instructions
+3. The installer will:
+   - Install Python if not present
+   - Install required packages
+   - Set up the database
+   - Create the executable
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd hotel-management-system
-```
+### Manual Installation
+1. Install Python 3.9 or later
+2. Install MySQL Server 8.0 or later
+3. Run `pip install -r requirements.txt`
+4. Run `mysql -u root -p < database/setup_database.sql`
+5. Run `python setup.py build`
 
-2. Create a virtual environment (recommended):
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install required packages:
-```bash
-pip install -r requirements.txt
-```
-
-4. Set up PostgreSQL:
-   - Install PostgreSQL if not already installed
-   - Create a new database named 'hotel_management'
-   - Update the database configuration in the code if needed
-
-5. Run the application:
-```bash
-python login.py
-```
-
-## Project Structure
-
-```
-hotel-management-system/
-├── images/              # Image assets
-├── login.py            # Login window
-├── register.py         # Registration window
-├── HMS.py             # Main application window
-├── customer.py         # Customer management
-├── room.py            # Room booking
-├── details.py         # Room details
-├── requirements.txt    # Project dependencies
-└── README.md          # Project documentation
-```
+## First Time Setup
+1. Launch the application
+2. Register a new admin account
+3. Log in with your credentials
 
 ## Database Configuration
-
-The application uses PostgreSQL. Update the database configuration in the code:
-
-```python
-DB_CONFIG = {
-    'host': 'localhost',
-    'database': 'hotel_management',
-    'user': 'postgres',
-    'password': 'your_password',
-    'port': '5432'
-}
-```
-
-## Usage
-
-1. Start the application by running `login.py`
-2. Login with your credentials or register a new account
-3. Use the main interface to:
-   - Manage customers
-   - Book rooms
-   - View room details
-   - Search records
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+- Default MySQL username: root
+- Default MySQL password: (set during MySQL installation)
+- Database name: hotel_management
 
 ## Support
-
-For support, please open an issue in the repository or contact the maintainers. 
+For any issues or questions, please contact support@yourdomain.com 

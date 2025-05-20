@@ -3,9 +3,9 @@ from PIL import Image,ImageTk
 from tkinter import ttk
 from time import strftime
 from datetime import datetime
-import mysql.connector
 from tkinter import messagebox
 import os
+from db_config import execute_query
 
 
 
@@ -146,36 +146,23 @@ class DetailsRoom:
 # ******************  add data
     def add_data(self):
         if self.var_Floor.get()=="" or self.var_RoomType.get()=="":
-            messagebox.showerror("Error","All fields are requaired",parent=self.root)
+            messagebox.showerror("Error","All fields are required",parent=self.root)
         else:
-            try:
-                conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-                my_cursor=conn.cursor()
-                my_cursor.execute("insert into details values(%s,%s,%s)",(
-                                        self.var_Floor.get(),
-                                        self.var_RoomNo.get(),
-                                        self.var_RoomType.get()
-                                    ))
-                conn.commit()
+            query = "INSERT INTO details (floor, roomno, roomtype) VALUES (%s, %s, %s)"
+            params = (self.var_Floor.get(), self.var_RoomNo.get(), self.var_RoomType.get())
+            if execute_query(query, params):
                 self.fetch_data()
-                conn.close()
                 messagebox.showinfo("Success","New Room added Successfully",parent=self.root)
-            except Exception as es:
-                messagebox.showwarning("Warning",f"Some thing went wrong:{str(es)}",parent=self.root)
 
 
     # # fetch data
     def fetch_data(self):
-        conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-        my_cursor=conn.cursor()
-        my_cursor.execute("select * from details")
-        rows=my_cursor.fetchall()
-        if len(rows)!=0:
+        query = "SELECT * FROM details"
+        rows = execute_query(query, fetch=True)
+        if rows:
             self.room_table.delete(*self.room_table.get_children())
             for i in rows:
                 self.room_table.insert("",END,values=i)
-            conn.commit()
-        conn.close()
 
 
         
@@ -184,8 +171,8 @@ class DetailsRoom:
         content=self.room_table.item(currsor_row)
         row=content["values"]
 
-        self.var_Floor.set(row[0]),
-        self.var_RoomNo.set(row[1]),
+        self.var_Floor.set(row[0])
+        self.var_RoomNo.set(row[1])
         self.var_RoomType.set(row[2])
         
 
@@ -194,35 +181,25 @@ class DetailsRoom:
 # ******update function
     def update(self):
         if self.var_Floor.get()=="":
-            messagebox.showerror("Error","Please  enter mobile number",parent=self.root)
+            messagebox.showerror("Error","Please enter floor number",parent=self.root)
         else:
-            conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-            my_cursor=conn.cursor()
-            my_cursor.execute("update details set Floor=%s, RoomType=%s where RoomNo=%s",(  
-                            self.var_Floor.get(),
-                            self.var_RoomType.get(),
-                            self.var_RoomNo.get()
-                        ))
-            conn.commit()
-            self.fetch_data()
-            conn.close()
-            messagebox.showinfo("Update","New Room details has been updated successfully",parent=self.root)
+            query = "UPDATE details SET floor=%s, roomtype=%s WHERE roomno=%s"
+            params = (self.var_Floor.get(), self.var_RoomType.get(), self.var_RoomNo.get())
+            if execute_query(query, params):
+                self.fetch_data()
+                messagebox.showinfo("Update","Room details has been updated successfully",parent=self.root)
 
 # *******Delete
     def Delete(self):
         Delete=messagebox.askyesno("Hotel Management System","Do you want to delete this Room",parent=self.root) 
         if Delete>0:
-            conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-            my_cursor=conn.cursor()
-            query="Delete from details where RoomNo=%s"
-            value=(self.var_RoomNo.get(),)
-            my_cursor.execute(query,value)
+            query = "DELETE FROM details WHERE roomno=%s"
+            params = (self.var_RoomNo.get(),)
+            if execute_query(query, params):
+                self.fetch_data()
         else:
             if not Delete:
                 return
-        conn.commit()
-        self.fetch_data()
-        conn.close()
 
     # *******Reset
     def Reset(self):

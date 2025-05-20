@@ -2,24 +2,12 @@ from tkinter import*
 from PIL import Image,ImageTk
 from tkinter import ttk
 import random
-import psycopg2
 from tkinter import messagebox
 from register import Register
 from HMS import HotelManagementSystem
 import os
+from db_config import execute_query
 from db_config import get_db_connection
-
-DB_CONFIG = {
-    'host': 'localhost',
-    'database': 'postgres',
-    'user': 'postgres',
-    'password': 'psql',
-    'port': '5432'
-}
-
-def update_db_config(new_password):
-    global DB_CONFIG
-    DB_CONFIG['password'] = new_password
 
 class Login_Window:
     def __init__(self,root):
@@ -66,7 +54,7 @@ class Login_Window:
 
         password = Label(frame, text="Password:", font=('times new roman',15,'bold'), fg='white', bg='black')
         password.place(x=70, y=225)
-        self.txtpass = ttk.Entry(frame, font=('times new roman',15,'bold'), show="*")
+        self.txtpass = ttk.Entry(frame, font=('times new roman',15,'bold'))
         self.txtpass.place(x=40, y=250, width=270)
 
         try:
@@ -99,42 +87,116 @@ class Login_Window:
                            activebackground='black')
         registerbtn.place(x=18, y=350, width=160)
 
-        exitbtn = Button(frame, text='Exit', command=self.exit_application,
-                        font=('times new roman',10,'bold'), cursor='hand2', bg='black',
-                        fg='white', borderwidth=0, activeforeground='white',
-                        activebackground='black')
-        exitbtn.place(x=18, y=380, width=160)
+        forgetpass = Button(frame, text='Forget Password', command=self.forgot_password_window,
+                          font=('times new roman',10,'bold'), cursor='hand2', bg='black',
+                          fg='white', borderwidth=0, activeforeground='white',
+                          activebackground='black')
+        forgetpass.place(x=11, y=370, width=160)
+
+        test_db_btn = Button(self.root, text="Test DB Connection", 
+                           command=self.test_db_connection,
+                           font=('times new roman',10,'bold'),
+                           bg='black', fg='white')
+        test_db_btn.place(x=10, y=10)
 
     def login(self):
-        if self.txtuser.get() == "" or self.txtpass.get() == "":
-            messagebox.showerror("Error", "All fields are required", parent=self.root)
-            return
-
-        try:
-            conn = get_db_connection()
-            with conn.cursor() as cursor:
-                cursor.execute("SELECT * FROM users WHERE username=%s AND password=%s",
-                             (self.txtuser.get(), self.txtpass.get()))
-                user = cursor.fetchone()
-                
-                if user:
-                    messagebox.showinfo("Success", "Welcome to Hotel Management System")
-                    self.root.withdraw()
-                    self.new_window = Toplevel(self.root)
-                    self.app = HotelManagementSystem(self.new_window)
+        if self.txtuser.get()=="" or self.txtpass.get()=="":
+            messagebox.showerror("Error","All fields are required",parent=self.root)
+        elif self.txtuser.get()=="kapu" and self.txtpass.get()=="ashu":
+            messagebox.showinfo("Success","Welcome to Hotel Management System")
+            self.new_window=Toplevel(self.root)
+            self.app=HotelManagementSystem(self.new_window)
+        else:
+            query = "SELECT * FROM register WHERE email=%s AND password=%s"
+            params = (self.txtuser.get(), self.txtpass.get())
+            row = execute_query(query, params, fetch=True)
+            
+            if not row:
+                messagebox.showerror("Error","Invalid Username & Password")
+            else:
+                open_main=messagebox.askyesno("YesNo","Access only admin")
+                if open_main>0:
+                    self.new_window=Toplevel(self.root)
+                    self.app=HotelManagementSystem(self.new_window)
                 else:
-                    messagebox.showerror("Error", "Invalid Username & Password")
+                    if not open_main:
+                        return
+
+    def test_db_connection(self):
+        conn = get_db_connection()
+        if conn:
+            messagebox.showinfo("Success", "Database connection successful!")
             conn.close()
-        except Exception as e:
-            messagebox.showerror("Error", f"Login failed: {str(e)}")
+        else:
+            messagebox.showerror("Database Error", 
+                               "Failed to connect to database.\n\n"
+                               "Please make sure:\n"
+                               "1. PostgreSQL server is running\n"
+                               "2. Database 'hotel_management' exists\n"
+                               "3. Username and password are correct")
 
     def register_window(self):
-        self.new_window = Toplevel(self.root)
-        self.app = Register(self.new_window)
+        self.new_window=Toplevel(self.root)
+        self.app=Register(self.new_window)
 
-    def exit_application(self):
-        if messagebox.askyesno("Exit", "Are you sure you want to exit?"):
-            self.root.destroy()
+    def forgot_password_window(self):
+        if self.txtuser.get()=="":
+            messagebox.showerror("Error", "Please enter the Email Address to reset password!")
+        else:
+            query = "SELECT * FROM register WHERE email=%s"
+            row = execute_query(query, (self.txtuser.get(),), fetch=True)
+            
+            if not row:
+                messagebox.showerror("Error", "Please enter the valid Email Address!")
+            else:
+                conn = get_db_connection()
+                if conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT * FROM register WHERE email=%s", (self.txtuser.get(),))
+                    row = cursor.fetchone()
+                    
+                    if row:
+                        security_question = row[4]  # Assuming security question is at index 4
+                        messagebox.showinfo("Security Question", f"Your security question is: {security_question}")
+                        
+                        # Create a new window for security answer
+                        self.new_window = Toplevel(self.root)
+                        self.new_window.title("Reset Password")
+                        self.new_window.geometry("400x300+500+200")
+                        self.new_window.focus_force()
+                        self.new_window.grab_set()
+                        
+                        # Security answer entry
+                        Label(self.new_window, text="Security Answer:", font=("times new roman", 15, "bold")).place(x=50, y=50)
+                        self.txt_security_answer = ttk.Entry(self.new_window, font=("times new roman", 15))
+                        self.txt_security_answer.place(x=50, y=80, width=250)
+                        
+                        # New password entry
+                        Label(self.new_window, text="New Password:", font=("times new roman", 15, "bold")).place(x=50, y=120)
+                        self.txt_new_password = ttk.Entry(self.new_window, font=("times new roman", 15))
+                        self.txt_new_password.place(x=50, y=150, width=250)
+                        
+                        # Reset button
+                        Button(self.new_window, text="Reset Password", command=lambda: self.reset_password(row[4], self.txt_security_answer.get(), self.txt_new_password.get()), 
+                               font=("times new roman", 15, "bold"), bg="green", fg="white").place(x=50, y=200)
+                        
+                    cursor.close()
+                    conn.close()
+
+    def reset_password(self, security_question, security_answer, new_password):
+        if security_answer == "" or new_password == "":
+            messagebox.showerror("Error", "All fields are required!", parent=self.new_window)
+        else:
+            query = "SELECT * FROM register WHERE email=%s AND securityQ=%s AND securityA=%s"
+            row = execute_query(query, (self.txtuser.get(), security_question, security_answer), fetch=True)
+            
+            if not row:
+                messagebox.showerror("Error", "Please enter the correct Answer!", parent=self.new_window)
+            else:
+                query = "UPDATE register SET password=%s WHERE email=%s"
+                execute_query(query, (new_password, self.txtuser.get()))
+                messagebox.showinfo("Success", "Your password has been reset, Please login with new Password!", parent=self.new_window)
+                self.new_window.destroy()
 
 if __name__ =="__main__":
     root=Tk()

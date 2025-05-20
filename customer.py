@@ -2,9 +2,10 @@ from tkinter import*
 from PIL import Image,ImageTk
 from tkinter import ttk
 import random
-import mysql.connector
 from tkinter import messagebox
 import os
+import mysql.connector
+from db_config import execute_query
 
 
 
@@ -245,105 +246,98 @@ class Cust_win:
         self.fetch_data()
 
     def add_data(self):
-        if self.var_mobile.get()=="" or self.var_mobile.get()=="":
-           messagebox.showerror("Error","All fields are requaired",parent=self.root)
-
+        if self.var_mobile.get()=="" or self.var_cust_name.get()=="":
+            messagebox.showerror("Error","All fields are required",parent=self.root)
         else:
             try:
-                conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-                my_cursor=conn.cursor()
-                my_cursor.execute("insert into customer values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",(
-                                        self.var_ref.get(),
-                                        self.var_cust_name.get(),
-                                        self.var_DOB.get(),
-                                        self.var_Occupation.get(),
-                                        self.var_gender.get(),
-                                        self.var_post.get(),
-                                        self.var_mobile.get(),
-                                        self.var_email.get(),
-                                        self.var_nationality.get(),
-                                        self.var_id_proof.get(),
-                                        self.var_id_no.get(),
-                                        self.var_address.get()
-                                    ))
-                conn.commit()
-                self.fetch_data()
-                conn.close()
-
-                messagebox.showinfo("Success","Customer has been added",parent=self.root)
-            except Exception as es:
-                messagebox.showwarning("Warning",f"Some thing went wrong:{str(es)}",parent=self.root)
+                query = """
+                    INSERT INTO customer (Ref, Name, DOB, Occupation, Gender, PostCode, Mobile, Email, Nationality, Idproof, IdNumber, Address)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                params = (
+                    int(self.var_ref.get()),
+                    self.var_cust_name.get(),
+                    self.var_DOB.get(),
+                    self.var_Occupation.get(),
+                    self.var_gender.get(),
+                    self.var_post.get(),
+                    self.var_mobile.get(),
+                    self.var_email.get(),
+                    self.var_nationality.get(),
+                    self.var_id_proof.get(),
+                    self.var_id_no.get(),
+                    self.var_address.get()
+                )
+                if execute_query(query, params):
+                    self.fetch_data()
+                    messagebox.showinfo("Success","Customer has been added",parent=self.root)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to add customer: {str(e)}", parent=self.root)
 
     def fetch_data(self):
-        conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-        my_cursor=conn.cursor()
-        my_cursor.execute("select * from customer")
-        rows=my_cursor.fetchall()
-        if len(rows)!=0:
-            self.Cust_Details_Table.delete(*self.Cust_Details_Table.get_children())
-            for i in rows:
-                self.Cust_Details_Table.insert("",END,values=i)
-            conn.commit()
-        conn.close()
+        try:
+            query = "SELECT * FROM customer"
+            rows = execute_query(query, fetch=True)
+            if rows:
+                self.Cust_Details_Table.delete(*self.Cust_Details_Table.get_children())
+                for i in rows:
+                    self.Cust_Details_Table.insert("",END,values=i)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to fetch data: {str(e)}", parent=self.root)
 
     def get_currsor(self,event=""):
-        currsor_row=self.Cust_Details_Table.focus()
-        content=self.Cust_Details_Table.item(currsor_row)
+        cursor_row=self.Cust_Details_Table.focus()
+        content=self.Cust_Details_Table.item(cursor_row)
         row=content["values"]
-
-        self.var_ref.set(row[0]),
-        self.var_cust_name.set(row[1]),
-        self.var_DOB.set(row[2]),
-        self.var_Occupation.set(row[3]),
-        self.var_gender.set(row[4]),
-        self.var_post.set(row[5]),
-        self.var_mobile.set(row[6]),
-        self.var_email.set(row[7]),
-        self.var_nationality.set(row[8]),
-        self.var_id_proof.set(row[9]),
-        self.var_id_no.set(row[10]),
-        self.var_address.set(row[11])
+        self.var_ref.set(row[0])
+        self.var_cust_name.set(row[1])
+        self.var_mobile.set(row[2])
+        self.var_nationality.set(row[3])
+        self.var_gender.set(row[4])
+        self.var_email.set(row[5])
+        self.var_address.set(row[6])
 
     def update(self):
         if self.var_mobile.get()=="":
-            messagebox.showerror("Error","Please  enter mobile number",parent=self.root)
+            messagebox.showerror("Error","Please enter mobile number",parent=self.root)
         else:
-            conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-            my_cursor=conn.cursor()
-            my_cursor.execute("update customer set Name=%s, DOB=%s, Occupation=%s, Gender=%s, PostCode=%s, Mobile=%s, Email=%s, Nationality=%s, Idproof=%s, IdNumber=%s, Address=%s where Ref=%s",(  
-                                        self.var_cust_name.get(),
-                                        self.var_DOB.get(),
-                                        self.var_Occupation.get(),
-                                        self.var_gender.get(),
-                                        self.var_post.get(),
-                                        self.var_mobile.get(),
-                                        self.var_email.get(),
-                                        self.var_nationality.get(),
-                                        self.var_id_proof.get(),
-                                        self.var_id_no.get(),
-                                        self.var_address.get(),
-                                        self.var_ref.get()
-                                    ))
-            conn.commit()
-            self.fetch_data()
-            conn.close()
-            messagebox.showinfo("Update","Customer details has been updated successfully",parent=self.root)
-
+            try:
+                query = """
+                    UPDATE customer SET 
+                    Name=%s, DOB=%s, Occupation=%s, Gender=%s, PostCode=%s, Mobile=%s, Email=%s, Nationality=%s, Idproof=%s, IdNumber=%s, Address=%s
+                    WHERE Ref=%s
+                """
+                params = (
+                    self.var_cust_name.get(),
+                    self.var_DOB.get(),
+                    self.var_Occupation.get(),
+                    self.var_gender.get(),
+                    self.var_post.get(),
+                    self.var_mobile.get(),
+                    self.var_email.get(),
+                    self.var_nationality.get(),
+                    self.var_id_proof.get(),
+                    self.var_id_no.get(),
+                    self.var_address.get(),
+                    int(self.var_ref.get())
+                )
+                if execute_query(query, params):
+                    self.fetch_data()
+                    messagebox.showinfo("Update","Customer details has been updated successfully",parent=self.root)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to update customer: {str(e)}", parent=self.root)
 
     def Delete(self):
-        Delete=messagebox.askyesno("Hotel Management System","Do you want to delete this customer",parent=self.root) 
+        Delete=messagebox.askyesno("Hotel Management System","Do you want to delete this customer",parent=self.root)
         if Delete>0:
-            conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-            my_cursor=conn.cursor()
-            query="Delete from customer where Ref=%s"
-            value=(self.var_ref.get(),)
-            my_cursor.execute(query,value)
-        else:
-            if not Delete:
-                return
-        conn.commit()
-        self.fetch_data()
-        conn.close()
+            try:
+                query = "DELETE FROM customer WHERE Ref=%s"
+                params = (int(self.var_ref.get()),)
+                if execute_query(query, params):
+                    self.fetch_data()
+                    messagebox.showinfo("Delete","Customer has been deleted successfully",parent=self.root)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delete customer: {str(e)}", parent=self.root)
 
     def Reset(self):
         # self.var_ref.set(""),
@@ -363,16 +357,24 @@ class Cust_win:
         self.var_ref.set(str(x))
 
     def search(self):
-        conn=mysql.connector.connect(host="localhost",username="root",password="pranjal,321",database="management")
-        my_cursor=conn.cursor()
-        my_cursor.execute("select * from customer where "+str(self.search_var.get())+ " LIKE '%"+str(self.txt_search.get())+"%'")
-        rows=my_cursor.fetchall()
-        if len (rows)!=0:
-            self.Cust_Details_Table.delete(*self.Cust_Details_Table.get_children())
-            for i in rows:
-                self.Cust_Details_Table.insert("",END,values=i)
-            conn.commit()
-        conn.close()   
+        if self.txt_search.get()=="":
+            messagebox.showerror("Error","All fields are required",parent=self.root)
+        else:
+            try:
+                if self.search_var.get()=="Ref":
+                    query = "SELECT * FROM customer WHERE Ref=%s"
+                else:
+                    query = "SELECT * FROM customer WHERE Mobile=%s"
+                params = (self.txt_search.get(),)
+                rows = execute_query(query, params, fetch=True)
+                if rows:
+                    self.Cust_Details_Table.delete(*self.Cust_Details_Table.get_children())
+                    for i in rows:
+                        self.Cust_Details_Table.insert("",END,values=i)
+                else:
+                    messagebox.showerror("Error","No record found",parent=self.root)
+            except Exception as e:
+                messagebox.showerror("Error", f"Search failed: {str(e)}", parent=self.root)
 
 
 
