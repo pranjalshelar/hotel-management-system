@@ -7,12 +7,13 @@ from tkinter import messagebox
 from register import Register
 from HMS import HotelManagementSystem
 import os
+from db_config import get_db_connection
 
 DB_CONFIG = {
     'host': 'localhost',
     'database': 'postgres',
     'user': 'postgres',
-    'password': 'psql', #psql
+    'password': 'psql',
     'port': '5432'
 }
 
@@ -65,7 +66,7 @@ class Login_Window:
 
         password = Label(frame, text="Password:", font=('times new roman',15,'bold'), fg='white', bg='black')
         password.place(x=70, y=225)
-        self.txtpass = ttk.Entry(frame, font=('times new roman',15,'bold'))
+        self.txtpass = ttk.Entry(frame, font=('times new roman',15,'bold'), show="*")
         self.txtpass.place(x=40, y=250, width=270)
 
         try:
@@ -98,160 +99,42 @@ class Login_Window:
                            activebackground='black')
         registerbtn.place(x=18, y=350, width=160)
 
-        forgetpass = Button(frame, text='Forget Password', command=self.forgot_password_window,
-                          font=('times new roman',10,'bold'), cursor='hand2', bg='black',
-                          fg='white', borderwidth=0, activeforeground='white',
-                          activebackground='black')
-        forgetpass.place(x=11, y=370, width=160)
-
-        test_db_btn = Button(self.root, text="Test DB Connection", 
-                           command=self.test_db_connection,
-                           font=('times new roman',10,'bold'),
-                           bg='black', fg='white')
-        test_db_btn.place(x=10, y=10)
-
-    def get_db_connection(self):
-        try:
-            conn = psycopg2.connect(**DB_CONFIG)
-            return conn
-        except psycopg2.Error as err:
-            messagebox.showerror("Database Error", f"Failed to connect to database: {err}")
-            return None
+        exitbtn = Button(frame, text='Exit', command=self.exit_application,
+                        font=('times new roman',10,'bold'), cursor='hand2', bg='black',
+                        fg='white', borderwidth=0, activeforeground='white',
+                        activebackground='black')
+        exitbtn.place(x=18, y=380, width=160)
 
     def login(self):
-        if self.txtuser.get()=="" or self.txtpass.get()=="":
-            messagebox.showerror("Error","All fields are required",parent=self.root)
-        elif self.txtuser.get()=="kapu" and self.txtpass.get()=="ashu":
-            messagebox.showinfo("Success","Welcome to Hotel Management System")
-            self.new_window=Toplevel(self.root)
-            self.app=HotelManagementSystem(self.new_window)
-        else:
-            conn = self.get_db_connection()
-            if conn:
-                try:
-                    with conn.cursor() as my_cursor:
-                        my_cursor.execute("SELECT * FROM register WHERE email=%s AND password=%s",(
-                                            self.txtuser.get(),
-                                            self.txtpass.get()
-                        ))
-                        row = my_cursor.fetchone()
-                        if row==None:
-                            messagebox.showerror("Error","Invalid Username & Password")
-                        else:
-                            open_main=messagebox.askyesno("YesNo","Access only admin")
-                            if open_main>0:
-                                self.new_window=Toplevel(self.root)
-                                self.app=HotelManagementSystem(self.new_window)
-                            else:
-                                if not open_main:
-                                    return
-                except psycopg2.Error as err:
-                    messagebox.showerror("Database Error", f"Error: {err}")
-                finally:
-                    conn.close()
+        if self.txtuser.get() == "" or self.txtpass.get() == "":
+            messagebox.showerror("Error", "All fields are required", parent=self.root)
+            return
 
-    def test_db_connection(self):
         try:
-            conn = psycopg2.connect(**DB_CONFIG)
-            messagebox.showinfo("Success", "Database connection successful!")
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT * FROM users WHERE username=%s AND password=%s",
+                             (self.txtuser.get(), self.txtpass.get()))
+                user = cursor.fetchone()
+                
+                if user:
+                    messagebox.showinfo("Success", "Welcome to Hotel Management System")
+                    self.root.withdraw()
+                    self.new_window = Toplevel(self.root)
+                    self.app = HotelManagementSystem(self.new_window)
+                else:
+                    messagebox.showerror("Error", "Invalid Username & Password")
             conn.close()
-        except psycopg2.Error as err:
-            messagebox.showerror("Database Error", 
-                               f"Failed to connect to database: {err}\n\n"
-                               "Please make sure:\n"
-                               "1. PostgreSQL server is running\n"
-                               "2. Database 'hotel_management' exists\n"
-                               "3. Username and password are correct")
-
-    def reset_pass(self):
-        if self.combo_security_Q.get()=="Select":
-            messagebox.showerror("Error","Select the security Question",parent=self.root2)
-        elif self.txt_security.get()=="":
-            messagebox.showerror("Error","Please enter the answer",parent=self.root2)
-        elif self.txt_newpass.get()=="":
-            messagebox.showerror("Error","Please enter the new password",parent=self.root2)
-        else:
-            conn = self.get_db_connection()
-            if conn:
-                try:
-                    with conn.cursor() as my_cursor:
-                        query = "SELECT * FROM register WHERE email=%s AND security_q=%s AND security_a=%s"
-                        value = (self.txtuser.get(), self.combo_security_Q.get(), self.txt_security.get())
-                        my_cursor.execute(query, value)
-                        row = my_cursor.fetchone()
-                        if row==None:
-                            messagebox.showerror("Error","Please enter correct Answer",parent=self.root2)
-                        else:
-                            query = "UPDATE register SET password=%s WHERE email=%s"
-                            value = (self.txt_newpass.get(), self.txtuser.get())
-                            my_cursor.execute(query, value)
-                            conn.commit()
-                            messagebox.showinfo("Info","Your password has been reset, please login with new password",parent=self.root2)
-                            self.root2.destroy()
-                except psycopg2.Error as err:
-                    messagebox.showerror("Database Error", f"Error: {err}")
-                finally:
-                    conn.close()
-
-    def forgot_password_window(self):
-        if self.txtuser.get()=="":
-            messagebox.showerror("Error","Please Write the Email address to reset password")
-        else:
-            conn = self.get_db_connection()
-            if conn:
-                try:
-                    with conn.cursor() as my_cursor:
-                        query = "SELECT * FROM register WHERE email=%s"
-                        value = (self.txtuser.get(),)
-                        my_cursor.execute(query, value)
-                        row = my_cursor.fetchone()
-                        if row==None:
-                            messagebox.showerror("Error","Please enter the valid username")
-                        else:
-                            conn.close()
-                            self.root2=Toplevel()
-                            self.root2.title("Forgot Password")
-                            self.root2.geometry("340x450+610+170")
-
-                            l=Label(self.root2,text="Forgot Password",font=('times new roman',15,'bold'),fg='white',bg='black')
-                            l.place(x=0,y=10,relwidth=1)
-
-                            security_Q=Label(self.root2,text="Select Security Question",font=('times new roman',15,'bold'),fg='black',bg='white')
-                            security_Q.place(x=50,y=80)
-
-                            self.combo_security_Q=ttk.Combobox(self.root2,font=('times new roman',15),state='readonly')
-                            self.combo_security_Q["values"]=("Select","Your Birth Place","Your Pet Name","Your Favourit Place","Your Dearest Person","Your Favourite Flowers","Your Favourite Book")
-                            self.combo_security_Q.place(x=50,y=110,width=250)
-                            self.combo_security_Q.current(0)
-
-                            security_A=Label(self.root2,text="Security Answer",font=('times new roman',15,'bold'),fg='black',bg='white')
-                            security_A.place(x=50,y=150)
-
-                            self.txt_security=ttk.Entry(self.root2,font=('times new roman',15))
-                            self.txt_security.place(x=50,y=180,width=250)
-
-                            new_password=Label(self.root2,text="New Password",font=('times new roman',15,'bold'),fg='black',bg='white')
-                            new_password.place(x=50,y=220)
-
-                            self.txt_newpass=ttk.Entry(self.root2,font=('times new roman',15))
-                            self.txt_newpass.place(x=50,y=250,width=250)
-
-                            btn=Button(self.root2,text="Reset",command=self.reset_pass,font=('times new roman',15),fg='white',bg='green')
-                            btn.place(x=100,y=290)
-
-                            backbtn=Button(self.root2,command=self.back,text='Back',font=('times new roman',15,'bold'),bd=3,cursor='hand2',bg='dark red',fg='white',activeforeground='white',activebackground='dark red')
-                            backbtn.place(x=110,y=340,width=120,height=35)
-                except psycopg2.Error as err:
-                    messagebox.showerror("Database Error", f"Error: {err}")
-                finally:
-                    conn.close()
+        except Exception as e:
+            messagebox.showerror("Error", f"Login failed: {str(e)}")
 
     def register_window(self):
-        self.new_window=Toplevel(self.root)
-        self.app=Register(self.new_window)
+        self.new_window = Toplevel(self.root)
+        self.app = Register(self.new_window)
 
-    def back(self):
-        self.root2.destroy()
+    def exit_application(self):
+        if messagebox.askyesno("Exit", "Are you sure you want to exit?"):
+            self.root.destroy()
 
 if __name__ =="__main__":
     root=Tk()
