@@ -10,11 +10,11 @@ class RoundedButton(tk.Canvas):
         self.command = command
 
         if cornerradius > 0.5*width:
-            print("Error: cornerradius is greater than width.")
+            print("Error: corner radius is greater than width.")
             return None
 
         if cornerradius > 0.5*height:
-            print("Error: cornerradius is greater than height.")
+            print("Error: corner radius is greater than height.")
             return None
 
         rad = 2*cornerradius
